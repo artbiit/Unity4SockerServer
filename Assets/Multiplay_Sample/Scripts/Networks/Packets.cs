@@ -5,7 +5,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System;
 
-public class Packets : MonoBehaviour
+public static class Packets 
 {
     public enum PacketType { Ping, Normal, Location = 3 }
     public enum HandlerIds : uint {
