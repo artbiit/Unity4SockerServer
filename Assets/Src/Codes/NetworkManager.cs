@@ -4,7 +4,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -26,14 +29,28 @@ public class NetworkManager : MonoBehaviour
 
     void Awake() {        
         instance = this;
+        SetDeviceIdDefaultValue();
         wait = new WaitForSecondsRealtime(5);
+    }
+
+    private void SetDeviceIdDefaultValue()
+    {
+        string deviceID = SystemInfo.deviceUniqueIdentifier.Substring(0, 5); // 기기 ID 일부만 사용
+
+        // 인스턴스 카운트 증가 및 설정
+        int instanceCount = PlayerPrefs.GetInt("InstanceCount", 0);
+        string uniqueID = $"{deviceID}_{instanceCount}";
+
+        // 인스턴스 카운트 증가 저장
+        PlayerPrefs.SetInt("InstanceCount", instanceCount + 1);
+        PlayerPrefs.Save();
+        deviceIdInputField.text = uniqueID;
     }
     public void OnStartButtonClicked() {
         string ip = ipInputField.text;
         string port = portInputField.text;
 
-        if (IsValidPort(port)) {
-            int portNumber = int.Parse(port);
+        if (IsValidPort(port, out int portNumber) && IsValidIP(ip)) {
 
             if (deviceIdInputField.text != "") {
                 GameManager.instance.deviceId = deviceIdInputField.text;
@@ -56,21 +73,25 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 포트없이 IPv4와 IPv6을 사용했는지 검사합니다.
+    /// </summary>
+    /// <param name="ip">ip 주소</param>
+    /// <returns>정상 여부</returns>
     bool IsValidIP(string ip)
     {
-        // 간단한 IP 유효성 검사
-        return System.Net.IPAddress.TryParse(ip, out _);
+        // IPv4 정규식: 0-255 범위의 4개 숫자 그룹
+        string ipv4Pattern = @"^(\d{1,3}\.){3}\d{1,3}$";
+
+        // IPv6 정규식: 콜론으로 구분된 8개의 16진수 그룹 (:: 생략 허용)
+        string ipv6Pattern = @"^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^:(:[0-9a-fA-F]{1,4}){1,7}$";
+
+        return Regex.IsMatch(ip, ipv4Pattern) || Regex.IsMatch(ip, ipv6Pattern);
     }
 
-    bool IsValidPort(string port)
-    {
-        // 간단한 포트 유효성 검사 (0 - 65535)
-        if (int.TryParse(port, out int portNumber))
-        {
-            return portNumber > 0 && portNumber <= 65535;
-        }
-        return false;
-    }
+
+    bool IsValidPort(string port, out int result) =>  int.TryParse(port, out result) && result > 0 && result <= 65535;
+    
 
      bool ConnectToServer(string ip, int port) {
         try {
