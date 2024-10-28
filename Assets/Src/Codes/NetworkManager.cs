@@ -153,7 +153,7 @@ public class NetworkManager : MonoBehaviour
     }
 
     // 공통 패킷 생성 함수
-    async void SendPacket<T>(T payload, uint handlerId)
+    async void SendPacket<T>(T payload, Packets.HandlerIds handlerId)
     {
         // ArrayBufferWriter<byte>를 사용하여 직렬화
         var payloadWriter = new ArrayBufferWriter<byte>();
@@ -162,7 +162,7 @@ public class NetworkManager : MonoBehaviour
 
         CommonPacket commonPacket = new CommonPacket
         {
-            handlerId = handlerId,
+            handlerId = (uint)handlerId,
             userId = GameManager.instance.deviceId,
             version = GameManager.instance.version,
             payload = payloadData,
@@ -196,7 +196,7 @@ public class NetworkManager : MonoBehaviour
         };
 
         // handlerId는 0으로 가정
-        SendPacket(initialPayload, (uint)Packets.HandlerIds.Init);
+        SendPacket(initialPayload, Packets.HandlerIds.Init);
     }
 
     public void SendLocationUpdatePacket(float x, float y) {
@@ -206,7 +206,7 @@ public class NetworkManager : MonoBehaviour
             y = y,
         };
 
-        SendPacket(locationUpdatePayload, (uint)Packets.HandlerIds.LocationUpdate);
+        SendPacket(locationUpdatePayload, Packets.HandlerIds.LocationUpdate);
     }
 
 

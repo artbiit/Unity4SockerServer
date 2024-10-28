@@ -8,7 +8,7 @@ using System;
 public class Packets : MonoBehaviour
 {
     public enum PacketType { Ping, Normal, Location = 3 }
-    public enum HandlerIds {
+    public enum HandlerIds : uint {
         Init = 0,
         LocationUpdate = 2 
     }
