@@ -7,7 +7,6 @@ using System;
 
 public static class Packets 
 {
-    public enum PacketType { Ping, Normal, Location = 3 }
     public enum HandlerIds : uint {
         Init = 0,
         LocationUpdate = 2 
@@ -38,24 +37,19 @@ public class InitialPayload
 
     [ProtoMember(2, IsRequired = true)]
     public uint playerId { get; set; }
-    
-    [ProtoMember(3, IsRequired = true)]
-    public float latency { get; set; }
 }
 
 [ProtoContract]
 public class CommonPacket
 {
-    [ProtoMember(1)]
-    public uint handlerId { get; set; }
 
-    [ProtoMember(2)]
+    [ProtoMember(1)]
     public string userId { get; set; }
 
-    [ProtoMember(3)]
-    public string version { get; set; }
+    [ProtoMember(2)]
+    public uint sequence { get; set; }
 
-    [ProtoMember(4)]
+    [ProtoMember(3)]
     public byte[] payload { get; set; }
 }
 

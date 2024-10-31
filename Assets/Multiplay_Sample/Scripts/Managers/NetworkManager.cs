@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using System.Buffers;
 using System.Collections;
@@ -26,6 +27,7 @@ public class NetworkManager : MonoBehaviour
 
     private byte[] receiveBuffer = new byte[4096];
     private List<byte> incompleteData = new List<byte>();
+    private uint sequence = 0;
 
     void Awake() {        
         instance = this;
@@ -37,13 +39,21 @@ public class NetworkManager : MonoBehaviour
     {
         string deviceID = SystemInfo.deviceUniqueIdentifier.Substring(0, 5); // 기기 ID 일부만 사용
 
+        
+        string uniqueID = null;
+#if UNITY_EDITOR
+        uniqueID = $"{deviceID}_edtior";
+#else
         // 인스턴스 카운트 증가 및 설정
         int instanceCount = PlayerPrefs.GetInt("InstanceCount", 0);
-        string uniqueID = $"{deviceID}_{instanceCount}";
-
+        uniqueID =  $"{deviceID}_{instanceCount}";
         // 인스턴스 카운트 증가 저장
         PlayerPrefs.SetInt("InstanceCount", instanceCount + 1);
         PlayerPrefs.Save();
+#endif
+
+
+
         deviceIdInputField.text = uniqueID;
     }
     public void OnStartButtonClicked() {
@@ -137,7 +147,7 @@ public class NetworkManager : MonoBehaviour
         return bytes;
     }
 
-    byte[] CreatePacketHeader(int dataLength, Packets.PacketType packetType) {
+    byte[] CreatePacketHeader(int dataLength, Packets.HandlerIds handlerId) {
         int packetLength = 4 + 1 + dataLength; // 전체 패킷 길이 (헤더 포함)
         byte[] header = new byte[5]; // 4바이트 길이 + 1바이트 타입
 
@@ -146,8 +156,8 @@ public class NetworkManager : MonoBehaviour
         lengthBytes = ToBigEndian(lengthBytes);
         Array.Copy(lengthBytes, 0, header, 0, 4);
 
-        // 다음 1바이트: 패킷 타입
-        header[4] = (byte)packetType;
+        // 다음 1바이트: 핸들러 종류
+        header[4] = (byte)handlerId;
 
         return header;
     }
@@ -157,14 +167,14 @@ public class NetworkManager : MonoBehaviour
     {
         // ArrayBufferWriter<byte>를 사용하여 직렬화
         var payloadWriter = new ArrayBufferWriter<byte>();
+
         Packets.Serialize(payloadWriter, payload);
         byte[] payloadData = payloadWriter.WrittenSpan.ToArray();
 
         CommonPacket commonPacket = new CommonPacket
         {
-            handlerId = (uint)handlerId,
             userId = GameManager.instance.deviceId,
-            version = GameManager.instance.version,
+            sequence = sequence,
             payload = payloadData,
         };
 
@@ -174,7 +184,7 @@ public class NetworkManager : MonoBehaviour
         byte[] data = commonPacketWriter.WrittenSpan.ToArray();
 
         // 헤더 생성
-        byte[] header = CreatePacketHeader(data.Length, Packets.PacketType.Normal);
+        byte[] header = CreatePacketHeader(data.Length, handlerId);
 
         // 패킷 생성
         byte[] packet = new byte[header.Length + data.Length];
@@ -191,8 +201,7 @@ public class NetworkManager : MonoBehaviour
         InitialPayload initialPayload = new InitialPayload
         {
             deviceId = GameManager.instance.deviceId,
-            playerId = GameManager.instance.playerId,
-            latency = GameManager.instance.latency,
+            playerId = GameManager.instance.playerId
         };
 
         // handlerId는 0으로 가정
@@ -236,7 +245,7 @@ public class NetworkManager : MonoBehaviour
             // 패킷 길이와 타입 읽기
             byte[] lengthBytes = incompleteData.GetRange(0, 4).ToArray();
             int packetLength = BitConverter.ToInt32(ToBigEndian(lengthBytes), 0);
-            Packets.PacketType packetType = (Packets.PacketType)incompleteData[4];
+            Packets.HandlerIds handlerId = (Packets.HandlerIds)incompleteData[4];
 
             if (incompleteData.Count < packetLength)
             {
@@ -250,14 +259,14 @@ public class NetworkManager : MonoBehaviour
 
             // Debug.Log($"Received packet: Length = {packetLength}, Type = {packetType}");
 
-            switch (packetType)
+            switch (handlerId)
             {
-                case Packets.PacketType.Normal:
+/*                case Packets.PacketType.Normal:
                     HandleNormalPacket(packetData);
                     break;
                 case Packets.PacketType.Location:
                     HandleLocationPacket(packetData);
-                    break;
+                    break;*/
             }
         }
     }
