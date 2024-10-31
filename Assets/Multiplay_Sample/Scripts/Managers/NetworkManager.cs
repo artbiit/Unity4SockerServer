@@ -3,12 +3,14 @@ using System;
 using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Windows;
 
 public class NetworkManager : MonoBehaviour
 {
@@ -45,6 +47,15 @@ public class NetworkManager : MonoBehaviour
         handlerMapper.Add(Packets.HandlerIds.LocationUpdate, HandleLocationPacket);
         handlerMapper.Add(Packets.HandlerIds.Ping, HandlePingPacket);
         wait = new WaitForSecondsRealtime(5);
+
+        Application.wantsToQuit += OnWantsToQuit;
+    }
+
+
+    private bool OnWantsToQuit()
+    {
+        Disconnect();
+        return true;
     }
 
     private void SetDeviceIdDefaultValue()
@@ -96,20 +107,26 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 포트없이 IPv4와 IPv6을 사용했는지 검사합니다.
-    /// </summary>
-    /// <param name="ip">ip 주소</param>
-    /// <returns>정상 여부</returns>
+
     bool IsValidIP(string ip)
     {
-        // IPv4 정규식: 0-255 범위의 4개 숫자 그룹
+        // IPv4 regular expression: matches 4 groups of numbers ranging from 0-255
         string ipv4Pattern = @"^(\d{1,3}\.){3}\d{1,3}$";
 
-        // IPv6 정규식: 콜론으로 구분된 8개의 16진수 그룹 (:: 생략 허용)
+        // IPv6 regular expression: matches 8 groups of hexadecimal numbers separated by colons (allows :: abbreviation)
         string ipv6Pattern = @"^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^:(:[0-9a-fA-F]{1,4}){1,7}$";
 
-        return Regex.IsMatch(ip, ipv4Pattern) || Regex.IsMatch(ip, ipv6Pattern);
+        // Check if the input matches IPv4 or IPv6 patterns
+        if (Regex.IsMatch(ip, ipv4Pattern) || Regex.IsMatch(ip, ipv6Pattern))
+        {
+            return true;
+        }
+
+        // Regular expression to validate domain names
+        var domainPattern = @"^(?!-)[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*(\.[A-Za-z]{2,})$";
+        var domainRegex = new Regex(domainPattern);
+
+        return domainRegex.IsMatch(ip);
     }
 
 
@@ -357,13 +374,19 @@ public class NetworkManager : MonoBehaviour
         
     }
 
+    
     private void OnDestroy()
     {
-        if(tcpClient != null)
+        Disconnect();
+    }
+
+    private void Disconnect()
+    {
+        if (tcpClient != null)
         {
             tcpClient.Close();
             tcpClient.Dispose();
+            tcpClient = null;
         }
-        
     }
 }
