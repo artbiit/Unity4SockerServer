@@ -201,6 +201,7 @@ public class NetworkManager : MonoBehaviour
         InitialPayload initialPayload = new InitialPayload
         {
             deviceId = GameManager.instance.deviceId,
+            clientVersion = Application.version,
             playerId = GameManager.instance.playerId
         };
 

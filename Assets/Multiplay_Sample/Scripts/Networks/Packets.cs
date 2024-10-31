@@ -35,8 +35,13 @@ public class InitialPayload
     [ProtoMember(1, IsRequired = true)]
     public string deviceId { get; set; }
 
-    [ProtoMember(2, IsRequired = true)]
+    [ProtoMember(2, IsRequired =true)]
+    public string clientVersion { get; set; }
+
+    [ProtoMember(3, IsRequired = true)]
     public uint playerId { get; set; }
+
+    
 }
 
 [ProtoContract]
