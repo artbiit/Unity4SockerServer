@@ -10,16 +10,22 @@ public class Spawner : MonoBehaviour
         instance = this;
     }
 
-    public void Spawn(LocationUpdate data) {
-        if (!GameManager.instance.isLive) {
+    public void Spawn(LocationUpdate.UserLocation[] users) {
+        if (!GameManager.instance.isLive || users == null) {
             return;
         }
         
         HashSet<string> newUsers = new HashSet<string>();
 
-        foreach(LocationUpdate.UserLocation user in data.users) {
+            for(int i = 0; i< users.Length; i++) {
+            var user = users[i];
+            if(user?.id == GameManager.instance.userId)
+            {
+ 
+                continue;
+            }
+            
             newUsers.Add(user.id);
-
             GameObject player = GameManager.instance.pool.Get(user);
             PlayerPrefab playerScript = player.GetComponent<PlayerPrefab>();
             playerScript.UpdatePosition(user.x, user.y);

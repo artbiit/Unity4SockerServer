@@ -16,6 +16,7 @@ public class GameManager : MonoBehaviour
     [Header("# Player Info")]
     public uint playerId;
     public string deviceId;
+    public string userId;
 
     [Header("# Game Object")]
     public PoolManager pool;
@@ -30,7 +31,7 @@ public class GameManager : MonoBehaviour
     }
 
     public void GameStart() {
-        player.deviceId = deviceId;
+        player.deviceId = userId;
         player.gameObject.SetActive(true);
         hud.SetActive(true);
         GameStartUI.SetActive(false);

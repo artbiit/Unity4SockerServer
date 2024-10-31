@@ -11545,7 +11545,7 @@ GameObject:
   - component: {fileID: 1060996768}
   m_Layer: 0
   m_Name: Ground
-  m_TagString: Untagged
+  m_TagString: GroundRoot
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12156,6 +12156,7 @@ MonoBehaviour:
   latency: 1
   playerId: 0
   deviceId: 
+  userId: 
   pool: {fileID: 1572847318}
   player: {fileID: 1729806269}
   hud: {fileID: 2138311659}
@@ -17762,6 +17763,7 @@ MonoBehaviour:
   - {fileID: 22100000, guid: e7442b4b1dab2479584ab1d8aa08a473, type: 2}
   - {fileID: 22100000, guid: 19bee3ea924744a4b88dc35a07a6debf, type: 2}
   - {fileID: 22100000, guid: 1aab438ac4cdc4d36b86fc36c80f39ad, type: 2}
+  rigid: {fileID: 0}
 --- !u!1 &1744828155
 GameObject:
   m_ObjectHideFlags: 3

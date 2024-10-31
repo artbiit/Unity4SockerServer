@@ -7,8 +7,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,14 +25,25 @@ public class NetworkManager : MonoBehaviour
 
     private byte[] receiveBuffer = new byte[4096];
     private List<byte> incompleteData = new List<byte>();
-    private uint sequence = 0;
-    private Dictionary<Packets.HandlerIds, Action<Response>> handlerMapper = new Dictionary<Packets.HandlerIds, Action<Response>> {
+    public float RTT { get; private set; } = 0.0f;
+    public float Latency { get; private set; } = 0.0f;
+    private Dictionary<Packets.HandlerIds, Action<Response>> handlerMapper = new Dictionary<Packets.HandlerIds, Action<Response>> ();
+    
 
-    };
+    void Awake() {
+        if (instance)
+        {
+            Debug.LogWarning("Already instantiated NetworkManager");
+            Destroy(this);
+            return;
+         }
 
-    void Awake() {        
+            
         instance = this;
         SetDeviceIdDefaultValue();
+        handlerMapper.Add(Packets.HandlerIds.Init, HandleInitPacket);
+        handlerMapper.Add(Packets.HandlerIds.LocationUpdate, HandleLocationPacket);
+        handlerMapper.Add(Packets.HandlerIds.Ping, HandlePingPacket);
         wait = new WaitForSecondsRealtime(5);
     }
 
@@ -59,6 +68,7 @@ public class NetworkManager : MonoBehaviour
 
         deviceIdInputField.text = uniqueID;
     }
+
     public void OnStartButtonClicked() {
         string ip = ipInputField.text;
         string port = portInputField.text;
@@ -108,6 +118,10 @@ public class NetworkManager : MonoBehaviour
 
      bool ConnectToServer(string ip, int port) {
         try {
+            if (tcpClient?.Connected == true)
+            {
+                return true;
+            }
             tcpClient = new TcpClient(ip, port);
             stream = tcpClient.GetStream();
             Debug.Log($"Connected to {ip}:{port}");
@@ -177,7 +191,6 @@ public class NetworkManager : MonoBehaviour
         CommonPacket commonPacket = new CommonPacket
         {
             userId = GameManager.instance.deviceId,
-            sequence = sequence,
             payload = payloadData,
         };
 
@@ -195,7 +208,8 @@ public class NetworkManager : MonoBehaviour
         Array.Copy(data, 0, packet, header.Length, data.Length);
 
         await Task.Delay(GameManager.instance.latency);
-        
+
+        //Debug.Log($"Write[{handlerId}] : {header.Length}/{data.Length}/{packet.Length}");
         // 패킷 전송
         stream.Write(packet, 0, packet.Length);
     }
@@ -219,7 +233,7 @@ public class NetworkManager : MonoBehaviour
             y = y,
         };
 
-        SendPacket(locationUpdatePayload, Packets.HandlerIds.LocationUpdate);
+        SendPacket(locationUpdatePayload, Packets.HandlerIds.LocationUpdatePayload);
     }
 
 
@@ -243,14 +257,13 @@ public class NetworkManager : MonoBehaviour
 
     void ProcessReceivedData(byte[] data, int length) {
          incompleteData.AddRange(data.AsSpan(0, length).ToArray());
-
-        while (incompleteData.Count >= 5)
+        while (incompleteData.Count >= 4)
         {
+            
             // 패킷 길이와 타입 읽기
             byte[] lengthBytes = incompleteData.GetRange(0, 4).ToArray();
             int packetLength = BitConverter.ToInt32(ToBigEndian(lengthBytes), 0);
-            Packets.HandlerIds handlerId = (Packets.HandlerIds)incompleteData[4];
-
+          
             if (incompleteData.Count < packetLength)
             {
                 // 데이터가 충분하지 않으면 반환
@@ -258,24 +271,20 @@ public class NetworkManager : MonoBehaviour
             }
 
             // 패킷 데이터 추출
-            byte[] packetData = incompleteData.GetRange(5, packetLength - 5).ToArray();
+            byte[] packetData = incompleteData.GetRange(4, packetLength - 4).ToArray();
             incompleteData.RemoveRange(0, packetLength);
 
-            // Debug.Log($"Received packet: Length = {packetLength}, Type = {packetType}");
-            HandleResponse(handlerId, packetData);
+            // Debug.Log($"Received packet: Length = {packetData.Length}");
+            HandleResponse( packetData);
         }
     }
 
-    void HandleResponse( Packets.HandlerIds handlerId ,byte[] packetData)
+    void HandleResponse( byte[] packetData)
     {
         try { 
         var response = Packets.Deserialize<Response>(packetData);
 
-            if(response.sequence > 0)
-            {
-                this.sequence = response.sequence;
-            }
-
+            Packets.HandlerIds handlerId = (Packets.HandlerIds)response.handlerId;
             if (response.responseCode != 0 && !uiNotice.activeSelf)
             {
                 AudioManager.instance.PlaySfx(AudioManager.Sfx.LevelUp);
@@ -283,7 +292,6 @@ public class NetworkManager : MonoBehaviour
                 return;
             }
 
-            
             if(handlerMapper.TryGetValue(handlerId,out var handler))
             {
                 handler(response);
@@ -297,23 +305,65 @@ public class NetworkManager : MonoBehaviour
     }
 
 
+    void HandlePingPacket(Response response)
+    {
+        Pong ping = Packets.FromJson<Pong>(response.data);
+        RTT =  (float)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ping.timestamp);
+        Latency = RTT * 0.5f;
+        SendPacket(new PingPayload { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, Packets.HandlerIds.Ping);
+    }
+
     void HandleInitPacket(Response response)
     {
+        Initial initial = null;
+        var data = response.data;
+        if (data.Length > 0)
+        {
+            initial = Packets.FromJson<Initial>(data);
+        }
+        else
+        {
+            initial = new Initial();
+            initial.allLocation =  new LocationUpdate.UserLocation[0];
+        }
 
+        GameManager.instance.userId = initial.userId;
+        GameManager.instance.GameStart();
+        GameManager.instance.player.transform.position = new Vector2(initial.x, initial.y);
 
+        var groundRoot = GameObject.FindWithTag("GroundRoot");
+        if (groundRoot)
+        {
+            groundRoot.transform.position = new Vector2(initial.x, initial.y);
+        }
+        Spawner.instance.Spawn(initial.allLocation);
     }
 
     void HandleLocationPacket(Response response) {
-   /*         LocationUpdate response;
+
+            LocationUpdate locationUpdate;
+
+            var data = response.data;
 
             if (data.Length > 0) {
                 // 패킷 데이터 처리
-                response = Packets.Deserialize<LocationUpdate>(data);
-            } else {
+                locationUpdate = Packets.FromJson<LocationUpdate>(data);
+                Spawner.instance?.Spawn(locationUpdate.users);
+           } else {
                 // data가 비어있을 경우 빈 배열을 전달
-                response = new LocationUpdate { users = new List<LocationUpdate.UserLocation>() };
+            //    locationUpdate = new LocationUpdate { users =   new  LocationUpdate.UserLocation[0] };
             }
 
-            Spawner.instance.Spawn(response);*/
+        
+    }
+
+    private void OnDestroy()
+    {
+        if(tcpClient != null)
+        {
+            tcpClient.Close();
+            tcpClient.Dispose();
+        }
+        
     }
 }

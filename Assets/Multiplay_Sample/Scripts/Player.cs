@@ -13,7 +13,7 @@ public class Player : MonoBehaviour
     public string deviceId;
     public RuntimeAnimatorController[] animCon;
 
-    Rigidbody2D rigid;
+    public Rigidbody2D rigid;
     SpriteRenderer spriter;
     Animator anim;
     TextMeshPro myText;
@@ -47,9 +47,10 @@ public class Player : MonoBehaviour
         inputVec.x = Input.GetAxisRaw("Horizontal");
         inputVec.y = Input.GetAxisRaw("Vertical");
 
-        // 위치 이동 패킷 전송 -> 서버로
-        NetworkManager.instance.SendLocationUpdatePacket(rigid.position.x, rigid.position.y);
+ 
     }
+
+    
 
 
     void FixedUpdate() {
@@ -77,6 +78,11 @@ public class Player : MonoBehaviour
 
         if (inputVec.x != 0) {
             spriter.flipX = inputVec.x < 0;
+        }
+
+        if (inputVec.x != 0f || inputVec.y != 0f)
+        {
+            NetworkManager.instance.SendLocationUpdatePacket(rigid.position.x, rigid.position.y);
         }
     }
 

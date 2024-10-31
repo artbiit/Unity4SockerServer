@@ -4,6 +4,7 @@ using System.IO;
 using System.Buffers;
 using System.Collections.Generic;
 using System;
+using Newtonsoft.Json;
 
 public static class Packets
 {
@@ -33,6 +34,21 @@ public static class Packets
             throw;
         }
     }
+
+    public static T FromJson<T>(byte[] data)
+    {
+        try
+        {
+          var json = System.Text.Encoding.UTF8.GetString(data, 0, data.Length);
+           // Debug.Log(json);
+            T result = JsonConvert.DeserializeObject<T>(json);
+            return result;
+        }catch (Exception ex)
+        {
+            Debug.LogError($"FromJson: Failed to deserialize data. Exception: {ex}");
+            throw;
+        }
+    }
 }
 
 #region Request
@@ -54,14 +70,11 @@ public class InitialPayload
 [ProtoContract]
 public class CommonPacket
 {
-
     [ProtoMember(1)]
     public string userId { get; set; }
 
-    [ProtoMember(2)]
-    public uint sequence { get; set; }
 
-    [ProtoMember(3)]
+    [ProtoMember(2)]
     public byte[] payload { get; set; }
 }
 
@@ -73,6 +86,12 @@ public class LocationUpdatePayload {
     public float y { get; set; }
 }
 
+[ProtoContract]
+public  class PingPayload
+{
+    [ProtoMember(1, IsRequired = true)]
+    public long timestamp { get; set; }
+}
 #endregion
 
 
@@ -82,6 +101,7 @@ public class LocationUpdatePayload {
 /// 공통 응답 메시지 구조
 /// </summary>
 [ProtoContract]
+[Serializable]
 public class Response {
     [ProtoMember(1)]
     public uint handlerId { get; set; }
@@ -94,9 +114,6 @@ public class Response {
 
     [ProtoMember(4)]
     public byte[] data { get; set; }
-
-    [ProtoMember(5)]
-    public uint sequence { get; set; }
 }
 
 
@@ -113,17 +130,16 @@ public class Rep
 public class Initial : Rep
 {
  public string userId { get; set; }
- public float x { get; set; }
- public float y { get; set; }
+    public float x { get; set; }
+    public float y { get; set; }
+    [UnityEngine.SerializeField]
+    public LocationUpdate.UserLocation[] allLocation { get; set; }
 }
 
 
-/// <summary>
-/// Ping 구조체
-/// </summary>
-[System.Serializable]
 
-public class Ping : Rep
+[System.Serializable]
+public class Pong : Rep
 {
     public long timestamp { get; set; }
 }
@@ -132,6 +148,7 @@ public class Ping : Rep
 [System.Serializable]
 public class LocationUpdate : Rep
 {
+    [UnityEngine.SerializeField]
     public UserLocation[] users { get; set; }
 
     [System.Serializable]

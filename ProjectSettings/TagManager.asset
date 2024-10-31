@@ -8,6 +8,7 @@ TagManager:
   - area
   - Enemy
   - Bullet
+  - GroundRoot
   layers:
   - Default
   - TransparentFX
