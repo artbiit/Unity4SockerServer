@@ -5,11 +5,17 @@ using System.Buffers;
 using System.Collections.Generic;
 using System;
 
-public static class Packets 
+public static class Packets
 {
+    /// <summary>
+    /// 송수신을 위한 ID, 서버에서도 같은 값으로 보내옴
+    /// </summary>
     public enum HandlerIds : uint {
-        Init = 0,
-        LocationUpdate = 2 
+        Ping = 1,
+        LocationUpdatePayload = 2,
+        LocationUpdate = 3,
+        Init = 4,
+        
     }
 
     public static void Serialize<T>(IBufferWriter<byte> writer, T data)
@@ -29,6 +35,7 @@ public static class Packets
     }
 }
 
+#region Request
 [ProtoContract]
 public class InitialPayload
 {
@@ -66,29 +73,14 @@ public class LocationUpdatePayload {
     public float y { get; set; }
 }
 
-[ProtoContract]
-public class LocationUpdate
-{
-    [ProtoMember(1)]
-    public List<UserLocation> users { get; set; }
+#endregion
 
-    [ProtoContract]
-    public class UserLocation
-    {
-        [ProtoMember(1)]
-        public string id { get; set; }
 
-        [ProtoMember(2)]
-        public uint playerId { get; set; }
+#region Response
 
-        [ProtoMember(3)]
-        public float x { get; set; }
-
-        [ProtoMember(4)]
-        public float y { get; set; }
-    }
-}
-
+/// <summary>
+/// 공통 응답 메시지 구조
+/// </summary>
 [ProtoContract]
 public class Response {
     [ProtoMember(1)]
@@ -102,4 +94,58 @@ public class Response {
 
     [ProtoMember(4)]
     public byte[] data { get; set; }
+
+    [ProtoMember(5)]
+    public uint sequence { get; set; }
 }
+
+
+[System.Serializable]
+public class Rep
+{
+    public string message { get; set; } 
+}
+
+/// <summary>
+/// Init 요청에 대한 응답 구조
+/// </summary>
+[System.Serializable]
+public class Initial : Rep
+{
+ public string userId { get; set; }
+ public float x { get; set; }
+ public float y { get; set; }
+}
+
+
+/// <summary>
+/// Ping 구조체
+/// </summary>
+[System.Serializable]
+
+public class Ping : Rep
+{
+    public long timestamp { get; set; }
+}
+
+
+[System.Serializable]
+public class LocationUpdate : Rep
+{
+    public UserLocation[] users { get; set; }
+
+    [System.Serializable]
+    public class UserLocation
+    {
+        public string id { get; set; }
+
+        public uint playerId { get; set; }
+
+        public float x { get; set; }
+
+        public float y { get; set; }
+    }
+}
+
+
+#endregion

@@ -28,6 +28,9 @@ public class NetworkManager : MonoBehaviour
     private byte[] receiveBuffer = new byte[4096];
     private List<byte> incompleteData = new List<byte>();
     private uint sequence = 0;
+    private Dictionary<Packets.HandlerIds, Action<Response>> handlerMapper = new Dictionary<Packets.HandlerIds, Action<Response>> {
+
+    };
 
     void Awake() {        
         instance = this;
@@ -259,51 +262,49 @@ public class NetworkManager : MonoBehaviour
             incompleteData.RemoveRange(0, packetLength);
 
             // Debug.Log($"Received packet: Length = {packetLength}, Type = {packetType}");
-
-            switch (handlerId)
-            {
-/*                case Packets.PacketType.Normal:
-                    HandleNormalPacket(packetData);
-                    break;
-                case Packets.PacketType.Location:
-                    HandleLocationPacket(packetData);
-                    break;*/
-            }
+            HandleResponse(handlerId, packetData);
         }
     }
 
-    void HandleNormalPacket(byte[] packetData) {
-        // 패킷 데이터 처리
+    void HandleResponse( Packets.HandlerIds handlerId ,byte[] packetData)
+    {
+        try { 
         var response = Packets.Deserialize<Response>(packetData);
-        // Debug.Log($"HandlerId: {response.handlerId}, responseCode: {response.responseCode}, timestamp: {response.timestamp}");
-        
-        if (response.responseCode != 0 && !uiNotice.activeSelf) {
-            AudioManager.instance.PlaySfx(AudioManager.Sfx.LevelUp);
-            StartCoroutine(NoticeRoutine(2));
-            return;
-        }
 
-        if (response.data != null && response.data.Length > 0) {
-            if (response.handlerId == 0) {
-                GameManager.instance.GameStart();
+            if(response.sequence > 0)
+            {
+                this.sequence = response.sequence;
             }
-            ProcessResponseData(response.data);
+
+            if (response.responseCode != 0 && !uiNotice.activeSelf)
+            {
+                AudioManager.instance.PlaySfx(AudioManager.Sfx.LevelUp);
+                StartCoroutine(NoticeRoutine(2));
+                return;
+            }
+
+            
+            if(handlerMapper.TryGetValue(handlerId,out var handler))
+            {
+                handler(response);
+            }
+            
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"HandleResponseError : {e}");
         }
     }
 
-    void ProcessResponseData(byte[] data) {
-        try {
-            // var specificData = Packets.Deserialize<SpecificDataType>(data);
-            string jsonString = Encoding.UTF8.GetString(data);
-            Debug.Log($"Processed SpecificDataType: {jsonString}");
-        } catch (Exception e) {
-            Debug.LogError($"Error processing response data: {e.Message}");
-        }
+
+    void HandleInitPacket(Response response)
+    {
+
+
     }
 
-    void HandleLocationPacket(byte[] data) {
-        try {
-            LocationUpdate response;
+    void HandleLocationPacket(Response response) {
+   /*         LocationUpdate response;
 
             if (data.Length > 0) {
                 // 패킷 데이터 처리
@@ -313,9 +314,6 @@ public class NetworkManager : MonoBehaviour
                 response = new LocationUpdate { users = new List<LocationUpdate.UserLocation>() };
             }
 
-            Spawner.instance.Spawn(response);
-        } catch (Exception e) {
-            Debug.LogError($"Error HandleLocationPacket: {e.Message}");
-        }
+            Spawner.instance.Spawn(response);*/
     }
 }
